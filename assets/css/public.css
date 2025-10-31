@@ -1,0 +1,47 @@
+.wccg-sticky-banner {
+    background-color: #eae4d6;
+    color: #281408;
+    font-family: 'DM Sans', sans-serif;
+    padding: 10px;
+    text-align: center;
+}
+
+.special-price-label {
+    background: #eae4d7;
+    border-radius: 20px;
+    color: #3c5249;
+    font-size: 14px;
+    font-weight: 400;
+    padding: 2px 6px;
+    vertical-align: middle;
+}
+
+del {
+    background: #263c33;
+    border-radius: 20px;
+    color: #eaeaea;
+    padding: 1px 6px;
+}
+
+ins {
+    text-decoration: none;
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+/* Adjust spacing for admin bar */
+.admin-bar .wccg-sticky-banner {
+    top: 32px;
+}
+
+@media screen and (max-width: 782px) {
+    .admin-bar .wccg-sticky-banner {
+        top: 46px;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .wccg-sticky-banner {
+        position: static;
+    }
+}

@@ -1,0 +1,95 @@
+# Copyright (C) 2024 CueFox
+# This file is distributed under the same license as the Customer Groups for WooCommerce plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: Customer Groups for WooCommerce 1.0.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/customer-groups-for-woocommerce\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2024-11-01T00:00:00+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.7.1\n"
+"X-Domain: wccg\n"
+
+#. Plugin Name of the plugin
+msgid "Customer Groups for WooCommerce"
+msgstr ""
+
+#. Description of the plugin
+msgid "Implements custom customer groups and pricing tiers for WooCommerce."
+msgstr ""
+
+#: admin/class-admin-customer-groups.php:123
+msgid "Customer Groups"
+msgstr ""
+
+#: admin/class-admin-customer-groups.php:125
+msgid "Add New Group"
+msgstr ""
+
+#: admin/class-admin-customer-groups.php:126
+msgid "Group Name"
+msgstr ""
+
+#: admin/class-admin-customer-groups.php:127
+msgid "Description"
+msgstr ""
+
+#: admin/class-admin-customer-groups.php:128
+msgid "Actions"
+msgstr ""
+
+#: admin/class-admin-user-assignments.php:145
+msgid "User Assignments"
+msgstr ""
+
+#: admin/class-admin-user-assignments.php:146
+msgid "Search users..."
+msgstr ""
+
+#: admin/class-admin-user-assignments.php:147
+msgid "All Groups"
+msgstr ""
+
+#: admin/class-admin-pricing-rules.php:167
+msgid "Pricing Rules"
+msgstr ""
+
+#: admin/class-admin-pricing-rules.php:168
+msgid "Select Customer Group"
+msgstr ""
+
+#: admin/class-admin-pricing-rules.php:169
+msgid "Discount Settings"
+msgstr ""
+
+#: admin/class-admin-pricing-rules.php:170
+msgid "Discount Type"
+msgstr ""
+
+#: admin/class-admin-pricing-rules.php:171
+msgid "Percentage Discount"
+msgstr ""
+
+#: admin/class-admin-pricing-rules.php:172
+msgid "Fixed Amount Discount"
+msgstr ""
+
+#: customer-groups-for-woocommerce.php:245
+msgid "Customer Groups for WooCommerce requires PHP version %s or higher."
+msgstr ""
+
+#: customer-groups-for-woocommerce.php:256
+msgid "Customer Groups for WooCommerce requires WordPress version %s or higher."
+msgstr ""
+
+#: customer-groups-for-woocommerce.php:266
+msgid "Customer Groups for WooCommerce requires WooCommerce to be installed and activated."
+msgstr ""
+
+#: customer-groups-for-woocommerce.php:276
+msgid "Customer Groups for WooCommerce requires WooCommerce version %s or higher."
+msgstr ""
