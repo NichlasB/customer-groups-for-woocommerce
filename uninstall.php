@@ -48,7 +48,9 @@ $options = array(
     'wccg_version',
     'wccg_installation_date',
     'wccg_last_cleanup',
-    'wccg_settings' // If you add settings in the future
+    'wccg_settings', // If you add settings in the future
+    'wccg_default_group_id', // Default group for ungrouped customers
+    'wccg_default_group_custom_title' // Custom title for default group display
 );
 
 foreach ($options as $option) {

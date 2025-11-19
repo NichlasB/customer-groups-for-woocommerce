@@ -88,6 +88,9 @@ class WCCG_Admin_Customer_Groups {
         case 'delete_group':
         $this->handle_delete_group();
         break;
+        case 'set_default_group':
+        $this->handle_set_default_group();
+        break;
     }
 }
 
@@ -133,7 +136,16 @@ class WCCG_Admin_Customer_Groups {
             return;
         }
 
+        // Check if this is the default group
+        $default_group_id = get_option('wccg_default_group_id', 0);
+        if ($default_group_id == $group_id) {
+            $this->add_admin_notice('error', 'Cannot delete the default group for ungrouped customers. Please set a different default group first.');
+            return;
+        }
+
         $result = $this->db->transaction(function() use ($group_id) {
+            global $wpdb;
+            
             // Delete pricing rules first
             $this->db->delete_group_pricing_rules($group_id);
 
@@ -156,6 +168,44 @@ class WCCG_Admin_Customer_Groups {
             $this->add_admin_notice('success', 'Customer group and associated data deleted successfully.');
         } else {
             $this->add_admin_notice('error', 'Error deleting customer group.');
+        }
+    }
+
+    /**
+     * Handle setting default group for ungrouped customers
+     */
+    private function handle_set_default_group() {
+        $group_id = $this->utils->sanitize_input($_POST['default_group_id'], 'int');
+        $custom_title = isset($_POST['custom_title']) ? $this->utils->sanitize_input($_POST['custom_title']) : '';
+
+        // Allow setting to 0 (no default group)
+        if ($group_id < 0) {
+            $this->add_admin_notice('error', 'Invalid group ID.');
+            return;
+        }
+
+        // If setting a specific group, verify it exists
+        if ($group_id > 0) {
+            global $wpdb;
+            $group_exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT group_id FROM {$wpdb->prefix}customer_groups WHERE group_id = %d",
+                $group_id
+            ));
+
+            if (!$group_exists) {
+                $this->add_admin_notice('error', 'Selected group does not exist.');
+                return;
+            }
+        }
+
+        // Update the options
+        update_option('wccg_default_group_id', $group_id);
+        update_option('wccg_default_group_custom_title', $custom_title);
+        
+        if ($group_id > 0) {
+            $this->add_admin_notice('success', 'Default group for ungrouped customers updated successfully.');
+        } else {
+            $this->add_admin_notice('success', 'Default group disabled. Ungrouped customers will see regular prices.');
         }
     }
 
@@ -192,11 +242,79 @@ class WCCG_Admin_Customer_Groups {
      * @param array $groups
      */
     private function render_page($groups) {
+        $default_group_id = get_option('wccg_default_group_id', 0);
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Customer Groups', 'wccg'); ?></h1>
 
             <?php settings_errors('wccg_customer_groups'); ?>
+
+            <!-- Default Group for Ungrouped Customers -->
+            <div class="wccg-default-group-section" style="background: #f0f0f1; padding: 15px; margin: 20px 0; border-left: 4px solid #2271b1;">
+                <h2 style="margin-top: 0;"><?php esc_html_e('Default Group for Ungrouped Customers', 'wccg'); ?></h2>
+                <p><?php esc_html_e('Select a group to apply pricing rules to customers who are not assigned to any group. This is useful for retail customers or promotional pricing.', 'wccg'); ?></p>
+                
+                <form method="post" style="margin-top: 15px;">
+                    <?php wp_nonce_field('wccg_customer_groups_action', 'wccg_customer_groups_nonce'); ?>
+                    <input type="hidden" name="action" value="set_default_group">
+                    
+                    <table class="form-table" style="margin-top: 0;">
+                        <tr>
+                            <th scope="row" style="padding-top: 0;">
+                                <label for="default_group_id"><?php esc_html_e('Default Group', 'wccg'); ?></label>
+                            </th>
+                            <td style="padding-top: 0;">
+                                <select name="default_group_id" id="default_group_id" class="regular-text">
+                                    <option value="0" <?php selected($default_group_id, 0); ?>>
+                                        <?php esc_html_e('None (Ungrouped customers see regular prices)', 'wccg'); ?>
+                                    </option>
+                                    <?php foreach ($groups as $group): ?>
+                                        <option value="<?php echo esc_attr($group->group_id); ?>" <?php selected($default_group_id, $group->group_id); ?>>
+                                            <?php echo esc_html($group->group_name); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?php if ($default_group_id > 0): ?>
+                                    <p class="description">
+                                        <span class="dashicons dashicons-yes-alt" style="color: #46b450;"></span>
+                                        <?php 
+                                        $default_group_name = '';
+                                        foreach ($groups as $group) {
+                                            if ($group->group_id == $default_group_id) {
+                                                $default_group_name = $group->group_name;
+                                                break;
+                                            }
+                                        }
+                                        printf(
+                                            esc_html__('Currently set to: %s', 'wccg'),
+                                            '<strong>' . esc_html($default_group_name) . '</strong>'
+                                        );
+                                        ?>
+                                    </p>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="custom_title"><?php esc_html_e('Custom Title', 'wccg'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" 
+                                    name="custom_title" 
+                                    id="custom_title" 
+                                    class="regular-text" 
+                                    value="<?php echo esc_attr(get_option('wccg_default_group_custom_title', '')); ?>"
+                                    placeholder="<?php esc_attr_e('e.g., Thanksgiving, Holiday Sale, VIP', 'wccg'); ?>">
+                                <p class="description">
+                                    <?php esc_html_e('Custom title shown in the site banner and cart/checkout labels (e.g., "Enjoy [Title] pricing" and "[Title] Pricing Applied"). Leave empty to use the group name.', 'wccg'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <?php submit_button(__('Update Default Group', 'wccg'), 'primary', '', false); ?>
+                </form>
+            </div>
 
             <h2><?php esc_html_e('Add New Group', 'wccg'); ?></h2>
             <form method="post">
@@ -242,17 +360,31 @@ class WCCG_Admin_Customer_Groups {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($groups as $group) : ?>
-                        <tr>
+                    <?php foreach ($groups as $group) : 
+                        $is_default = ($default_group_id == $group->group_id);
+                    ?>
+                        <tr<?php if ($is_default) echo ' style="background-color: #f0f6fc;"'; ?>>
                             <td><?php echo esc_html($group->group_id); ?></td>
-                            <td><?php echo esc_html($group->group_name); ?></td>
+                            <td>
+                                <?php echo esc_html($group->group_name); ?>
+                                <?php if ($is_default): ?>
+                                    <span class="dashicons dashicons-star-filled" style="color: #2271b1; font-size: 16px; vertical-align: middle;" title="<?php esc_attr_e('Default group for ungrouped customers', 'wccg'); ?>"></span>
+                                    <span style="color: #2271b1; font-size: 11px; font-weight: bold;"><?php esc_html_e('DEFAULT', 'wccg'); ?></span>
+                                <?php endif; ?>
+                            </td>
                             <td><?php echo esc_html($group->group_description); ?></td>
                             <td>
                                 <form method="post" style="display:inline;">
                                     <?php wp_nonce_field('wccg_customer_groups_action', 'wccg_customer_groups_nonce'); ?>
                                     <input type="hidden" name="action" value="delete_group">
                                     <input type="hidden" name="group_id" value="<?php echo esc_attr($group->group_id); ?>">
-                                    <?php submit_button(__('Delete', 'wccg'), 'delete', '', false); ?>
+                                    <?php 
+                                    if ($is_default) {
+                                        submit_button(__('Delete', 'wccg'), 'delete', '', false, array('disabled' => 'disabled', 'title' => __('Cannot delete default group', 'wccg')));
+                                    } else {
+                                        submit_button(__('Delete', 'wccg'), 'delete', '', false);
+                                    }
+                                    ?>
                                 </form>
                             </td>
                         </tr>

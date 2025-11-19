@@ -181,9 +181,12 @@
                         new_status: newStatus
                     },
                     success: function(response) {
+                        console.log('Toggle response:', response);
                         if (response.success) {
                             const isActive = parseInt(response.data.is_active, 10);
                             const isChecked = (isActive === 1);
+                            
+                            console.log('Rule ID:', ruleId, 'Requested:', newStatus, 'Got back:', isActive, 'Setting checked to:', isChecked);
                             
                             // Find status text (re-select to ensure fresh reference)
                             const $statusText = $toggle.closest('td').find('.wccg-status-text');
@@ -194,7 +197,10 @@
                             // Update checkbox (mark as programmatic change to avoid triggering event)
                             $toggle.data('programmatic-change', true);
                             $toggle.prop('checked', isChecked);
+                            
+                            console.log('Updated checkbox to:', $toggle.prop('checked'), 'Status text to:', $statusText.text());
                         } else {
+                            console.error('Toggle failed:', response.data.message);
                             alert('Error: ' + response.data.message);
                             // Revert toggle
                             $toggle.data('programmatic-change', true);

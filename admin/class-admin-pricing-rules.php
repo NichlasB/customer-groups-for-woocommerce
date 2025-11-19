@@ -301,13 +301,28 @@ class WCCG_Admin_Pricing_Rules {
             array('%d')
         );
 
-        if ($result !== false) {
+        // Check for database error
+        if ($result === false) {
+            wp_send_json_error(array('message' => 'Database error: ' . $wpdb->last_error));
+            return;
+        }
+
+        // Verify the update by reading back the value
+        $current_status = $wpdb->get_var($wpdb->prepare(
+            "SELECT is_active FROM {$table} WHERE rule_id = %d",
+            $rule_id
+        ));
+
+        // Confirm the status matches what was requested
+        if ((int)$current_status === $new_status) {
             wp_send_json_success(array(
                 'message' => 'Rule status updated',
-                'is_active' => (int)$new_status
+                'is_active' => (int)$current_status
             ));
         } else {
-            wp_send_json_error(array('message' => 'Failed to update rule status'));
+            wp_send_json_error(array(
+                'message' => 'Status update verification failed. Expected: ' . $new_status . ', Got: ' . $current_status
+            ));
         }
     }
 

@@ -37,6 +37,13 @@ class WCCG_Public {
     private $price_cache = array();
 
     /**
+     * Flag to prevent duplicate banner display
+     *
+     * @var bool
+     */
+    private $banner_displayed = false;
+
+    /**
      * Get class instance
      *
      * @return WCCG_Public
@@ -70,8 +77,10 @@ class WCCG_Public {
         add_filter('woocommerce_cart_item_price', array($this, 'display_cart_item_price'), 10, 3);
         add_filter('woocommerce_cart_item_subtotal', array($this, 'display_cart_item_subtotal'), 10, 3);
 
-        // Display hooks
+        // Display hooks - use wp_body_open if available, otherwise wp_footer
         add_action('wp_body_open', array($this, 'display_sticky_banner'), 10);
+        // Fallback for themes that don't support wp_body_open
+        add_action('wp_footer', array($this, 'display_sticky_banner_fallback'), 5);
 
         // Enqueue styles
         add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
@@ -95,7 +104,7 @@ class WCCG_Public {
      * @param WC_Cart $cart
      */
     public function adjust_cart_prices($cart) {
-        if (is_admin() || !is_user_logged_in()) {
+        if (is_admin()) {
             return;
         }
 
@@ -104,8 +113,6 @@ class WCCG_Public {
         if (!empty($cart->wccg_prices_adjusted)) {
             return;
         }
-
-        $user_id = get_current_user_id();
 
         foreach ($cart->get_cart() as $cart_item) {
             $product = $cart_item['data'];
@@ -128,10 +135,6 @@ class WCCG_Public {
      * @return string
      */
     public function adjust_price_display($price_html, $product) {
-        if (!is_user_logged_in()) {
-            return $price_html;
-        }
-
         $adjusted_price = $this->get_adjusted_price($product);
 
         if ($adjusted_price === false) {
@@ -143,7 +146,18 @@ class WCCG_Public {
         $original_price = !empty($sale_price) && $sale_price > 0 ? $sale_price : $product->get_regular_price();
 
         if ($adjusted_price < $original_price) {
-            $group_name = $this->db->get_user_group_name(get_current_user_id());
+            $user_id = get_current_user_id();
+            $group_name = $user_id ? $this->db->get_user_group_name($user_id) : null;
+            
+            // If no group name found, check if using default group
+            if (!$group_name && get_option('wccg_default_group_id', 0)) {
+                global $wpdb;
+                $group_name = $wpdb->get_var($wpdb->prepare(
+                    "SELECT group_name FROM {$wpdb->prefix}customer_groups WHERE group_id = %d",
+                    get_option('wccg_default_group_id', 0)
+                ));
+            }
+            
             $label_html = $group_name ? sprintf(
                 ' <span class="special-price-label">%s Pricing</span>',
                 $this->utils->escape_output($group_name)
@@ -169,10 +183,6 @@ class WCCG_Public {
      * @return string
      */
     public function display_cart_item_price($price_html, $cart_item, $cart_item_key) {
-        if (!is_user_logged_in()) {
-            return $price_html;
-        }
-
         $product = $cart_item['data'];
         $adjusted_price = $this->get_adjusted_price($product);
 
@@ -204,10 +214,6 @@ class WCCG_Public {
      * @return string
      */
     public function display_cart_item_subtotal($subtotal_html, $cart_item, $cart_item_key) {
-        if (!is_user_logged_in()) {
-            return $subtotal_html;
-        }
-
         $product = $cart_item['data'];
         $adjusted_price = $this->get_adjusted_price($product);
 
@@ -239,13 +245,12 @@ class WCCG_Public {
      */
     private function get_adjusted_price($product) {
         $user_id = get_current_user_id();
-
-        if (!$user_id) {
-            return false;
-        }
+        
+        // For guests, use special user ID (0) to check default group pricing
+        $effective_user_id = $user_id ? $user_id : 0;
 
         // Check request-level cache first
-        $cache_key = $product->get_id() . '_' . $user_id;
+        $cache_key = $product->get_id() . '_' . $effective_user_id;
         if (isset($this->price_cache[$cache_key])) {
             return $this->price_cache[$cache_key];
         }
@@ -260,7 +265,7 @@ class WCCG_Public {
             return false;
         }
 
-        $pricing_rule = $this->db->get_pricing_rule_for_product($product->get_id(), $user_id);
+        $pricing_rule = $this->db->get_pricing_rule_for_product($product->get_id(), $effective_user_id);
         if (!$pricing_rule) {
             $this->price_cache[$cache_key] = false;
             return false;
@@ -306,41 +311,141 @@ class WCCG_Public {
     }
 
     /**
+     * Get pricing group display title for a user
+     * Public method that can be used by other plugins
+     *
+     * @param int|null $user_id User ID (null for current user or guest)
+     * @return string|null Display title or null if no pricing applies
+     */
+    public function get_pricing_group_display_title($user_id = null) {
+        global $wpdb;
+        
+        // If user_id is null, use current user (0 for guests)
+        if ($user_id === null) {
+            $user_id = get_current_user_id();
+        }
+        
+        // Check for explicit group assignment
+        if ($user_id > 0) {
+            $group_name = $this->db->get_user_group_name($user_id);
+            if ($group_name) {
+                return $group_name;
+            }
+        }
+        
+        // Check for default group eligibility
+        $default_group_id = get_option('wccg_default_group_id', 0);
+        if (!$default_group_id) {
+            return null;
+        }
+        
+        // Check if default group has active pricing rules
+        $has_rule = $wpdb->get_var($wpdb->prepare(
+            "SELECT 1 FROM {$wpdb->prefix}pricing_rules WHERE group_id = %d AND is_active = 1",
+            $default_group_id
+        ));
+        
+        if (!$has_rule) {
+            return null;
+        }
+        
+        // Get display title (custom title or group name)
+        $custom_title = get_option('wccg_default_group_custom_title', '');
+        if (empty($custom_title)) {
+            $custom_title = $wpdb->get_var($wpdb->prepare(
+                "SELECT group_name FROM {$wpdb->prefix}customer_groups WHERE group_id = %d",
+                $default_group_id
+            ));
+        }
+        
+        return $custom_title ?: null;
+    }
+
+    /**
      * Display sticky banner
      */
     public function display_sticky_banner() {
-        if (!is_user_logged_in()) {
-            return;
+        // Mark that banner has been displayed to prevent duplicates
+        if (did_action('wp_body_open')) {
+            $this->banner_displayed = true;
         }
+        
+        $this->render_sticky_banner();
+    }
 
-        $user_id = get_current_user_id();
-        $group_id = $this->db->get_user_group($user_id);
-
-        if (!$group_id) {
-            return;
+    /**
+     * Fallback method to display sticky banner if wp_body_open wasn't called
+     */
+    public function display_sticky_banner_fallback() {
+        // Only display if banner hasn't been shown yet
+        if (empty($this->banner_displayed)) {
+            $this->render_sticky_banner();
         }
+    }
 
-        $user_info = get_userdata($user_id);
-        $first_name = $user_info->first_name;
-
-        if (empty($first_name)) {
-            $first_name = $user_info->display_name;
-        }
-
-        $group_name = $this->db->get_user_group_name($user_id);
-
-        // Check if group has an active pricing rule
+    /**
+     * Render the actual sticky banner HTML
+     */
+    private function render_sticky_banner() {
         global $wpdb;
+        $user_id = get_current_user_id();
+        $group_id = $user_id ? $this->db->get_user_group($user_id) : null;
+
+        // Handle users with explicit group assignment
+        if ($group_id) {
+            $user_info = get_userdata($user_id);
+            $first_name = $user_info->first_name;
+
+            if (empty($first_name)) {
+                $first_name = $user_info->display_name;
+            }
+
+            $group_name = $this->db->get_user_group_name($user_id);
+
+            // Check if group has an active pricing rule
+            $has_rule = $wpdb->get_var($wpdb->prepare(
+                "SELECT 1 FROM {$wpdb->prefix}pricing_rules WHERE group_id = %d AND is_active = 1",
+                $group_id
+            ));
+
+            if ($has_rule && $group_name) {
+                echo '<div class="wccg-sticky-banner">' . 
+                    $this->utils->escape_output($first_name) . 
+                    ', you receive <strong>' . 
+                    $this->utils->escape_output($group_name) . 
+                    '</strong> pricing on eligible products!</div>';
+            }
+            return;
+        }
+
+        // Handle ungrouped users and guests with default group
+        $default_group_id = get_option('wccg_default_group_id', 0);
+        if (!$default_group_id) {
+            return;
+        }
+
+        // Check if default group has active pricing rules
         $has_rule = $wpdb->get_var($wpdb->prepare(
-            "SELECT 1 FROM {$wpdb->prefix}pricing_rules WHERE group_id = %d",
-            $group_id
+            "SELECT 1 FROM {$wpdb->prefix}pricing_rules WHERE group_id = %d AND is_active = 1",
+            $default_group_id
         ));
 
-        if ($has_rule && $group_name) {
-            echo '<div class="wccg-sticky-banner">' . 
-                $this->utils->escape_output($first_name) . 
-                ', you receive <strong>' . 
-                $this->utils->escape_output($group_name) . 
+        if (!$has_rule) {
+            return;
+        }
+
+        // Get display title (custom title or group name)
+        $custom_title = get_option('wccg_default_group_custom_title', '');
+        if (empty($custom_title)) {
+            $custom_title = $wpdb->get_var($wpdb->prepare(
+                "SELECT group_name FROM {$wpdb->prefix}customer_groups WHERE group_id = %d",
+                $default_group_id
+            ));
+        }
+
+        if ($custom_title) {
+            echo '<div class="wccg-sticky-banner">Enjoy <strong>' . 
+                $this->utils->escape_output($custom_title) . 
                 '</strong> pricing on eligible products!</div>';
         }
     }

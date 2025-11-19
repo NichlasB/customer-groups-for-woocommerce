@@ -223,8 +223,15 @@ public function transaction($callback) {
      */
     public function get_pricing_rule_for_product($product_id, $user_id) {
         $group_id = $this->get_user_group($user_id);
+        
+        // If user has no group, check for a default group setting
         if (!$group_id) {
-            return null;
+            $default_group_id = get_option('wccg_default_group_id', 0);
+            if ($default_group_id) {
+                $group_id = $default_group_id;
+            } else {
+                return null;
+            }
         }
 
         // Check direct product rules first (highest precedence)
