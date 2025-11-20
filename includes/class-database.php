@@ -257,7 +257,9 @@ public function transaction($callback) {
             "SELECT pr.* 
             FROM {$this->tables['pricing_rules']} pr
             JOIN {$this->tables['rule_products']} rp ON pr.rule_id = rp.rule_id
-            WHERE pr.group_id = %d AND rp.product_id = %d AND pr.is_active = 1",
+            WHERE pr.group_id = %d AND rp.product_id = %d AND pr.is_active = 1
+            AND (pr.start_date IS NULL OR pr.start_date <= UTC_TIMESTAMP())
+            AND (pr.end_date IS NULL OR pr.end_date >= UTC_TIMESTAMP())",
             $group_id,
             $product_id
         ));
@@ -327,6 +329,8 @@ public function transaction($callback) {
             FROM {$this->tables['pricing_rules']} pr
             JOIN {$this->tables['rule_categories']} rc ON pr.rule_id = rc.rule_id
             WHERE pr.group_id = %d AND rc.category_id IN ($placeholders) AND pr.is_active = 1
+            AND (pr.start_date IS NULL OR pr.start_date <= UTC_TIMESTAMP())
+            AND (pr.end_date IS NULL OR pr.end_date >= UTC_TIMESTAMP())
             ORDER BY pr.created_at DESC",
             array_merge(array($group_id), $category_ids)
         );

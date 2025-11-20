@@ -52,6 +52,50 @@ if (!defined('ABSPATH')) {
         </tr>
     </table>
 
+    <h2><?php esc_html_e('Schedule (Optional)', 'wccg'); ?></h2>
+    <table class="form-table">
+        <tr>
+            <th scope="row">
+                <label for="start_date"><?php esc_html_e('Start Date & Time', 'wccg'); ?></label>
+            </th>
+            <td>
+                <input name="start_date" 
+                    type="datetime-local" 
+                    id="start_date">
+                <p class="description">
+                    <?php esc_html_e('When should this pricing rule become active? Leave blank for immediate activation.', 'wccg'); ?>
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <th scope="row">
+                <label for="end_date"><?php esc_html_e('End Date & Time', 'wccg'); ?></label>
+            </th>
+            <td>
+                <input name="end_date" 
+                    type="datetime-local" 
+                    id="end_date">
+                <p class="description">
+                    <?php esc_html_e('When should this pricing rule expire? Leave blank for no expiration.', 'wccg'); ?>
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <p class="description">
+                    <strong><?php esc_html_e('Note:', 'wccg'); ?></strong>
+                    <?php 
+                    $timezone_string = wp_timezone_string();
+                    printf(
+                        esc_html__('Times are based on your site timezone: %s. Leave both fields blank for the rule to be always active.', 'wccg'),
+                        '<code>' . esc_html($timezone_string) . '</code>'
+                    );
+                    ?>
+                </p>
+            </td>
+        </tr>
+    </table>
+
     <h2><?php esc_html_e('Select Products', 'wccg'); ?></h2>
     <div class="wccg-selection-section">
         <p class="description">

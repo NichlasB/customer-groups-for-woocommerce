@@ -52,6 +52,7 @@ class WCCG_Admin_Pricing_Rules {
         add_action('wp_ajax_wccg_delete_all_pricing_rules', array($this, 'ajax_delete_all_pricing_rules'));
         add_action('wp_ajax_wccg_bulk_toggle_pricing_rules', array($this, 'ajax_bulk_toggle_pricing_rules'));
         add_action('wp_ajax_wccg_reorder_pricing_rules', array($this, 'ajax_reorder_pricing_rules'));
+        add_action('wp_ajax_wccg_update_rule_schedule', array($this, 'ajax_update_rule_schedule'));
     }
 
     /**
@@ -210,6 +211,26 @@ class WCCG_Admin_Pricing_Rules {
             return;
         }
 
+        // Process schedule dates
+        $start_date = null;
+        $end_date = null;
+
+        if (!empty($_POST['start_date'])) {
+            // Convert from site timezone to UTC for storage
+            $start_date = $this->convert_to_utc($_POST['start_date']);
+        }
+
+        if (!empty($_POST['end_date'])) {
+            // Convert from site timezone to UTC for storage
+            $end_date = $this->convert_to_utc($_POST['end_date']);
+        }
+
+        // Validate that end_date is after start_date if both are provided
+        if ($start_date && $end_date && $end_date <= $start_date) {
+            $this->add_admin_notice('error', 'End date must be after start date.');
+            return;
+        }
+
         // Sanitize product and category IDs
         $product_ids = isset($_POST['product_ids']) 
         ? array_map(array($this->utils, 'sanitize_input'), (array)$_POST['product_ids'], array_fill(0, count($_POST['product_ids']), 'int'))
@@ -220,13 +241,37 @@ class WCCG_Admin_Pricing_Rules {
         : array();
 
         // Process database operations
-        $result = $this->save_pricing_rule($group_id, $discount_type, $discount_value, $product_ids, $category_ids);
+        $result = $this->save_pricing_rule($group_id, $discount_type, $discount_value, $product_ids, $category_ids, $start_date, $end_date);
 
         if ($result) {
             $this->add_admin_notice('success', 'Pricing rule saved successfully.');
         } else {
             $this->add_admin_notice('error', 'Error occurred while saving pricing rule.');
         }
+    }
+
+    /**
+     * Convert datetime from site timezone to UTC
+     *
+     * @param string $datetime_local
+     * @return string UTC datetime
+     */
+    private function convert_to_utc($datetime_local) {
+        // datetime-local format is 'YYYY-MM-DDTHH:MM'
+        // Convert to 'YYYY-MM-DD HH:MM:SS' format
+        $datetime_formatted = str_replace('T', ' ', $datetime_local) . ':00';
+        
+        // Get timezone
+        $timezone = wp_timezone();
+        
+        // Create DateTime object in site timezone
+        $dt = new DateTime($datetime_formatted, $timezone);
+        
+        // Convert to UTC
+        $dt->setTimezone(new DateTimeZone('UTC'));
+        
+        // Return in MySQL datetime format
+        return $dt->format('Y-m-d H:i:s');
     }
 
     /**
@@ -440,6 +485,130 @@ class WCCG_Admin_Pricing_Rules {
     }
 
     /**
+     * AJAX handler for updating rule schedule
+     */
+    public function ajax_update_rule_schedule() {
+        check_ajax_referer('wccg_pricing_rules_ajax', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(array('message' => 'Unauthorized'));
+        }
+
+        $rule_id = isset($_POST['rule_id']) ? intval($_POST['rule_id']) : 0;
+        if (!$rule_id) {
+            wp_send_json_error(array('message' => 'Invalid rule ID'));
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'pricing_rules';
+
+        // Verify rule exists
+        $rule_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT rule_id FROM {$table} WHERE rule_id = %d",
+            $rule_id
+        ));
+
+        if (!$rule_exists) {
+            wp_send_json_error(array('message' => 'Rule not found'));
+        }
+
+        // Process schedule dates
+        $start_date = null;
+        $end_date = null;
+
+        if (!empty($_POST['start_date'])) {
+            $start_date = $this->convert_to_utc($_POST['start_date']);
+        }
+
+        if (!empty($_POST['end_date'])) {
+            $end_date = $this->convert_to_utc($_POST['end_date']);
+        }
+
+        // Validate that end_date is after start_date if both are provided
+        if ($start_date && $end_date && $end_date <= $start_date) {
+            wp_send_json_error(array('message' => 'End date must be after start date'));
+        }
+
+        // Update only the schedule columns
+        $update_data = array(
+            'start_date' => $start_date,
+            'end_date' => $end_date
+        );
+
+        $result = $wpdb->update(
+            $table,
+            $update_data,
+            array('rule_id' => $rule_id),
+            array('%s', '%s'),
+            array('%d')
+        );
+
+        if ($result === false) {
+            wp_send_json_error(array('message' => 'Database error: ' . $wpdb->last_error));
+        }
+
+        // Calculate schedule status for response
+        $schedule_status = 'active';
+        $schedule_badge_html = '';
+        $schedule_display_html = '';
+        
+        $now = new DateTime('now', new DateTimeZone('UTC'));
+        $has_schedule = !empty($start_date) || !empty($end_date);
+        
+        if ($has_schedule) {
+            $start_dt = !empty($start_date) ? new DateTime($start_date, new DateTimeZone('UTC')) : null;
+            $end_dt = !empty($end_date) ? new DateTime($end_date, new DateTimeZone('UTC')) : null;
+            
+            // Check if scheduled for future
+            if ($start_dt && $start_dt > $now) {
+                $schedule_status = 'scheduled';
+                $schedule_badge_html = '<span class="wccg-status-badge wccg-status-scheduled">' . 
+                    esc_html__('Scheduled', 'wccg') . '</span>';
+            }
+            // Check if expired
+            elseif ($end_dt && $end_dt < $now) {
+                $schedule_status = 'expired';
+                $schedule_badge_html = '<span class="wccg-status-badge wccg-status-expired">' . 
+                    esc_html__('Expired', 'wccg') . '</span>';
+            }
+            // Active and within schedule
+            else {
+                $schedule_status = 'active';
+                $schedule_badge_html = '<span class="wccg-status-badge wccg-status-active">' . 
+                    esc_html__('Active', 'wccg') . '</span>';
+            }
+            
+            // Format dates for display (convert from UTC to site timezone)
+            $date_format = get_option('date_format') . ' ' . get_option('time_format');
+            $schedule_parts = array();
+            
+            if ($start_dt) {
+                $start_display = get_date_from_gmt($start_date, $date_format);
+                $schedule_parts[] = '<strong>' . esc_html__('Start:', 'wccg') . '</strong> ' . esc_html($start_display);
+            }
+            
+            if ($end_dt) {
+                $end_display = get_date_from_gmt($end_date, $date_format);
+                $schedule_parts[] = '<strong>' . esc_html__('End:', 'wccg') . '</strong> ' . esc_html($end_display);
+            }
+            
+            if (!empty($schedule_parts)) {
+                $schedule_display_html = '<div class="wccg-schedule-dates">' . implode('<br>', $schedule_parts) . '</div>';
+            }
+        } else {
+            $schedule_badge_html = '<span class="wccg-status-badge wccg-status-active">' . 
+                esc_html__('Always Active', 'wccg') . '</span>';
+        }
+
+        wp_send_json_success(array(
+            'message' => 'Schedule updated successfully',
+            'schedule_status' => $schedule_status,
+            'schedule_badge_html' => $schedule_badge_html,
+            'schedule_display_html' => $schedule_display_html
+        ));
+    }
+
+    /**
      * Get current rule conflicts
      *
      * @return array
@@ -499,19 +668,23 @@ class WCCG_Admin_Pricing_Rules {
      * @param float $discount_value
      * @param array $product_ids
      * @param array $category_ids
+     * @param string|null $start_date
+     * @param string|null $end_date
      * @return bool
      */
-    private function save_pricing_rule($group_id, $discount_type, $discount_value, $product_ids, $category_ids) {
+    private function save_pricing_rule($group_id, $discount_type, $discount_value, $product_ids, $category_ids, $start_date = null, $end_date = null) {
     error_log('WCCG Debug: Attempting to save pricing rule');
     error_log('WCCG Debug: Input data: ' . print_r([
         'group_id' => $group_id,
         'discount_type' => $discount_type,
         'discount_value' => $discount_value,
         'product_ids' => $product_ids,
-        'category_ids' => $category_ids
+        'category_ids' => $category_ids,
+        'start_date' => $start_date,
+        'end_date' => $end_date
     ], true));
 
-    return $this->db->transaction(function() use ($group_id, $discount_type, $discount_value, $product_ids, $category_ids) {
+    return $this->db->transaction(function() use ($group_id, $discount_type, $discount_value, $product_ids, $category_ids, $start_date, $end_date) {
         global $wpdb;
 
         // Check if sort_order column exists
@@ -539,6 +712,17 @@ class WCCG_Admin_Pricing_Rules {
             $new_sort_order = $max_sort_order ? $max_sort_order + 1 : 1;
             $insert_data['sort_order'] = $new_sort_order;
             $insert_format[] = '%d';
+        }
+
+        // Add schedule dates if provided
+        if ($start_date !== null) {
+            $insert_data['start_date'] = $start_date;
+            $insert_format[] = '%s';
+        }
+        
+        if ($end_date !== null) {
+            $insert_data['end_date'] = $end_date;
+            $insert_format[] = '%s';
         }
 
         // Insert new rule
@@ -635,7 +819,7 @@ private function get_pricing_rules() {
 
     // Query with sort_order ordering (ascending for drag-drop)
     $rules = $wpdb->get_results(
-        "SELECT pr.*, 
+        "SELECT pr.*, pr.start_date, pr.end_date,
             GROUP_CONCAT(DISTINCT rp.product_id) as product_ids,
             GROUP_CONCAT(DISTINCT rc.category_id) as category_ids
         FROM {$wpdb->prefix}pricing_rules pr

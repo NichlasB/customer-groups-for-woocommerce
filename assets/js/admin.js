@@ -198,6 +198,60 @@
                             $toggle.data('programmatic-change', true);
                             $toggle.prop('checked', isChecked);
                             
+                            // Update schedule cell visual indicators
+                            const $row = $toggle.closest('tr');
+                            const $scheduleCell = $row.find('.wccg-schedule-cell');
+                            const hasSchedule = $scheduleCell.find('.wccg-schedule-dates').length > 0;
+                            
+                            if (isChecked) {
+                                // Rule is now active - remove inactive styling and warning
+                                $scheduleCell.removeClass('wccg-schedule-inactive');
+                                $scheduleCell.find('.wccg-schedule-warning').remove();
+                            } else {
+                                // Rule is now inactive - add inactive styling and warning
+                                $scheduleCell.addClass('wccg-schedule-inactive');
+                                if (hasSchedule && !$scheduleCell.find('.wccg-schedule-warning').length) {
+                                    $scheduleCell.append(
+                                        '<div class="wccg-schedule-warning">' +
+                                        '<span class="dashicons dashicons-warning"></span>' +
+                                        'Rule is inactive' +
+                                        '</div>'
+                                    );
+                                }
+                            }
+                            
+                            // Update Edit Schedule button
+                            const $editBtn = $row.find('.wccg-edit-schedule-btn');
+                            $editBtn.attr('data-is-active', isActive);
+                            if (isChecked) {
+                                $editBtn.removeAttr('title');
+                            } else {
+                                $editBtn.attr('title', 'Note: Rule is currently inactive. Enable the toggle for schedule to take effect.');
+                            }
+                            
+                            // Update warning in the edit form if it's currently visible
+                            const $editRow = $row.next('.wccg-schedule-edit-row');
+                            if ($editRow.is(':visible')) {
+                                const $editForm = $editRow.find('.wccg-schedule-edit-form');
+                                const $warning = $editForm.find('.wccg-inactive-rule-warning');
+                                
+                                if (isChecked) {
+                                    // Remove warning if exists
+                                    $warning.remove();
+                                } else {
+                                    // Add warning if doesn't exist
+                                    if (!$warning.length) {
+                                        $editForm.find('h4').after(
+                                            '<div class="wccg-inactive-rule-warning">' +
+                                            '<span class="dashicons dashicons-warning"></span>' +
+                                            '<strong>Warning:</strong> ' +
+                                            'This rule is currently inactive. The schedule will not take effect until you enable the rule using the toggle switch.' +
+                                            '</div>'
+                                        );
+                                    }
+                                }
+                            }
+                            
                             console.log('Updated checkbox to:', $toggle.prop('checked'), 'Status text to:', $statusText.text());
                         } else {
                             console.error('Toggle failed:', response.data.message);

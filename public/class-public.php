@@ -341,7 +341,10 @@ class WCCG_Public {
         
         // Check if default group has active pricing rules
         $has_rule = $wpdb->get_var($wpdb->prepare(
-            "SELECT 1 FROM {$wpdb->prefix}pricing_rules WHERE group_id = %d AND is_active = 1",
+            "SELECT 1 FROM {$wpdb->prefix}pricing_rules 
+            WHERE group_id = %d AND is_active = 1
+            AND (start_date IS NULL OR start_date <= UTC_TIMESTAMP())
+            AND (end_date IS NULL OR end_date >= UTC_TIMESTAMP())",
             $default_group_id
         ));
         
@@ -404,7 +407,10 @@ class WCCG_Public {
 
             // Check if group has an active pricing rule
             $has_rule = $wpdb->get_var($wpdb->prepare(
-                "SELECT 1 FROM {$wpdb->prefix}pricing_rules WHERE group_id = %d AND is_active = 1",
+                "SELECT 1 FROM {$wpdb->prefix}pricing_rules 
+                WHERE group_id = %d AND is_active = 1
+                AND (start_date IS NULL OR start_date <= UTC_TIMESTAMP())
+                AND (end_date IS NULL OR end_date >= UTC_TIMESTAMP())",
                 $group_id
             ));
 
@@ -426,7 +432,10 @@ class WCCG_Public {
 
         // Check if default group has active pricing rules
         $has_rule = $wpdb->get_var($wpdb->prepare(
-            "SELECT 1 FROM {$wpdb->prefix}pricing_rules WHERE group_id = %d AND is_active = 1",
+            "SELECT 1 FROM {$wpdb->prefix}pricing_rules 
+            WHERE group_id = %d AND is_active = 1
+            AND (start_date IS NULL OR start_date <= UTC_TIMESTAMP())
+            AND (end_date IS NULL OR end_date >= UTC_TIMESTAMP())",
             $default_group_id
         ));
 

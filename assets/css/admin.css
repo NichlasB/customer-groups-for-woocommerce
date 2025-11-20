@@ -136,6 +136,55 @@ select[name="group_id"] {
 /* ==========================================================================
    4. Rules List Styles
    ========================================================================== */
+/* Horizontal Scrolling Wrapper */
+.wccg-pricing-rules-table-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    margin: 20px 0;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    position: relative;
+}
+
+/* Smooth scrolling */
+.wccg-pricing-rules-table-wrapper {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Custom scrollbar styling (for webkit browsers) */
+.wccg-pricing-rules-table-wrapper::-webkit-scrollbar {
+    height: 12px;
+}
+
+.wccg-pricing-rules-table-wrapper::-webkit-scrollbar-track {
+    background: #f0f0f1;
+    border-radius: 0 0 4px 4px;
+}
+
+.wccg-pricing-rules-table-wrapper::-webkit-scrollbar-thumb {
+    background: #8c8f94;
+    border-radius: 6px;
+}
+
+.wccg-pricing-rules-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #646970;
+}
+
+.wccg-pricing-rules-table-wrapper .wccg-pricing-rules-table {
+    margin: 0;
+    border: none;
+    min-width: 1472px;
+    border-radius: 0;
+}
+
+/* Remove the fixed layout for better column sizing in scroll */
+.wccg-pricing-rules-table-wrapper .wccg-pricing-rules-table {
+    table-layout: auto;
+}
+
 /* Table Headers */
 .wp-list-table th {
     white-space: nowrap;
@@ -235,7 +284,22 @@ select[name="group_id"] {
 /* ==========================================================================
    6. Mobile/Responsive Styles
    ========================================================================== */
-   @media screen and (max-width: 782px) {
+/* Tablets and smaller laptops (width less than table min-width) */
+@media screen and (max-width: 1520px) {
+    .wccg-pricing-rules-table-wrapper {
+        /* Add subtle shadow gradient to indicate scrollability */
+        background: 
+            linear-gradient(90deg, #fff 0%, rgba(255,255,255,0) 40px) left,
+            linear-gradient(90deg, rgba(255,255,255,0) calc(100% - 40px), #fff 100%) right,
+            linear-gradient(90deg, rgba(0,0,0,0.1) 0%, transparent 20px) left,
+            linear-gradient(270deg, rgba(0,0,0,0.1) 0%, transparent 20px) right;
+        background-repeat: no-repeat;
+        background-size: 40px 100%, 40px 100%, 20px 100%, 20px 100%;
+        background-attachment: local, local, scroll, scroll;
+    }
+}
+
+@media screen and (max-width: 782px) {
     /* Info Box */
     .wccg-info-grid {
         grid-template-columns: 1fr;
@@ -243,6 +307,14 @@ select[name="group_id"] {
 
     .wccg-info-box {
         padding: 15px;
+    }
+
+    /* Scrollable table on mobile */
+    .wccg-pricing-rules-table-wrapper {
+        margin: 20px -10px;
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
     }
 
     /* Form Elements */
@@ -421,7 +493,325 @@ select[name="group_id"] {
 }
 
 /* ==========================================================================
-   10. High-DPI Display Adjustments
+   10. Schedule Status Badges
+   ========================================================================== */
+.wccg-status-badge {
+    border-radius: 3px;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 4px 8px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.wccg-status-badge.wccg-status-active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.wccg-status-badge.wccg-status-scheduled {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.wccg-status-badge.wccg-status-expired {
+    background-color: #e2e3e5;
+    color: #6c757d;
+}
+
+.wccg-schedule-cell {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.wccg-schedule-dates {
+    color: #50575e;
+    font-size: 12px;
+    margin-top: 8px;
+    line-height: 1.6;
+}
+
+.wccg-schedule-dates strong {
+    color: #1d2327;
+    font-weight: 500;
+}
+
+/* Schedule inactive state */
+.wccg-schedule-inactive {
+    opacity: 0.6;
+}
+
+.wccg-schedule-inactive .wccg-schedule-dates {
+    text-decoration: line-through;
+}
+
+.wccg-schedule-warning {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+    padding: 6px 8px;
+    background-color: #fff8e5;
+    border-left: 3px solid #dba617;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #856404;
+}
+
+.wccg-schedule-warning .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: #dba617;
+}
+
+/* ==========================================================================
+   11. Inline Edit Schedule Form
+   ========================================================================== */
+.wccg-schedule-edit-row {
+    background-color: #f9f9f9;
+    border-top: 2px solid #2271b1;
+}
+
+.wccg-schedule-edit-form {
+    padding: 20px;
+    max-width: 800px;
+}
+
+.wccg-schedule-edit-form h4 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    color: #1d2327;
+    font-weight: 600;
+}
+
+.wccg-inactive-rule-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    background-color: #fff8e5;
+    border-left: 4px solid #dba617;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #856404;
+    line-height: 1.5;
+}
+
+.wccg-inactive-rule-warning .dashicons {
+    color: #dba617;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.wccg-inactive-rule-warning strong {
+    color: #996800;
+}
+
+.wccg-edit-schedule-fields {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.wccg-edit-field {
+    flex: 1;
+    min-width: 250px;
+}
+
+.wccg-edit-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #1d2327;
+    font-size: 13px;
+}
+
+.wccg-edit-field input[type="datetime-local"] {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 14px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+}
+
+.wccg-edit-field input[type="datetime-local"]:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: 2px solid transparent;
+}
+
+.wccg-edit-schedule-actions {
+    margin: 15px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.wccg-schedule-edit-message {
+    margin-left: 10px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.wccg-edit-schedule-btn {
+    margin-right: 5px;
+}
+
+/* Mobile responsiveness for edit form */
+@media screen and (max-width: 782px) {
+    .wccg-edit-schedule-fields {
+        flex-direction: column;
+    }
+    
+    .wccg-edit-field {
+        min-width: 100%;
+    }
+    
+    .wccg-edit-schedule-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .wccg-schedule-edit-message {
+        margin-left: 0;
+        margin-top: 10px;
+    }
+}
+
+/* ==========================================================================
+   12. Actions Column Styles
+   ========================================================================== */
+.wccg-pricing-rules-table td:last-child {
+    white-space: nowrap;
+}
+
+.wccg-actions-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.wccg-edit-schedule-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 3px 8px !important;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 3px;
+    border: 1px solid #2271b1;
+    background: #f6f7f7;
+    color: #2271b1;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    min-height: 24px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.wccg-edit-schedule-btn:hover {
+    background: #2271b1;
+    color: #fff;
+    border-color: #135e96;
+}
+
+.wccg-edit-schedule-btn:focus {
+    box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1;
+    outline: 2px solid transparent;
+}
+
+.wccg-edit-schedule-btn .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+}
+
+.wccg-delete-rule-form {
+    display: block;
+    margin: 0;
+}
+
+.button-link-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 3px 8px !important;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 3px;
+    border: 1px solid #d63638;
+    background: #f6f7f7;
+    color: #d63638;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    width: 100%;
+    min-height: 24px;
+    box-sizing: border-box;
+}
+
+.button-link-delete:hover {
+    background: #d63638;
+    color: #fff;
+    border-color: #b32d2e;
+}
+
+.button-link-delete:focus {
+    box-shadow: 0 0 0 1px #fff, 0 0 0 3px #d63638;
+    outline: 2px solid transparent;
+    color: #d63638;
+}
+
+.button-link-delete .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+}
+
+/* Compact icon-only variant for smaller screens */
+@media screen and (max-width: 1400px) {
+    .wccg-edit-schedule-btn .button-text,
+    .button-link-delete .button-text {
+        display: none;
+    }
+    
+    .wccg-edit-schedule-btn,
+    .button-link-delete {
+        padding: 5px !important;
+        min-width: 28px;
+        justify-content: center;
+        min-height: 28px;
+    }
+    
+    .wccg-edit-schedule-btn .dashicons,
+    .button-link-delete .dashicons {
+        margin: 0;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+    }
+    
+    .wccg-actions-wrapper {
+        gap: 6px;
+    }
+}
+
+/* ==========================================================================
+   13. High-DPI Display Adjustments
    ========================================================================== */
    @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
     .dashicons-star-filled {

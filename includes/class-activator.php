@@ -17,6 +17,7 @@ public static function activate() {
         self::add_created_at_column();
         self::add_is_active_column();
         self::add_sort_order_column();
+        self::add_schedule_columns();
         self::migrate_existing_rules();
         self::schedule_tasks();
         self::set_version();
@@ -88,11 +89,15 @@ private static function create_tables() {
             is_active TINYINT(1) DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             sort_order INT UNSIGNED DEFAULT 0,
+            start_date DATETIME NULL,
+            end_date DATETIME NULL,
             PRIMARY KEY (rule_id),
             KEY group_id (group_id),
             KEY created_at (created_at),
             KEY is_active (is_active),
-            KEY sort_order (sort_order)
+            KEY sort_order (sort_order),
+            KEY start_date (start_date),
+            KEY end_date (end_date)
         ) $charset_collate;",
 
         $rule_products_table => "CREATE TABLE IF NOT EXISTS $rule_products_table (
@@ -245,6 +250,62 @@ private static function add_sort_order_column() {
             SET sort_order = rule_id 
             WHERE sort_order = 0"
         );
+    }
+}
+
+/**
+ * Add schedule columns if they don't exist
+ */
+private static function add_schedule_columns() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'pricing_rules';
+
+    // Check if start_date column exists
+    $start_date_exists = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = %s 
+        AND TABLE_NAME = %s 
+        AND COLUMN_NAME = %s",
+        DB_NAME,
+        $table_name,
+        'start_date'
+    ));
+
+    if (empty($start_date_exists)) {
+        $result = $wpdb->query(
+            "ALTER TABLE {$table_name} 
+            ADD COLUMN start_date DATETIME NULL,
+            ADD INDEX start_date (start_date)"
+        );
+
+        if ($result === false) {
+            error_log('WCCG Critical: Failed to add start_date column - ' . $wpdb->last_error);
+            throw new Exception('Failed to add start_date column');
+        }
+    }
+
+    // Check if end_date column exists
+    $end_date_exists = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = %s 
+        AND TABLE_NAME = %s 
+        AND COLUMN_NAME = %s",
+        DB_NAME,
+        $table_name,
+        'end_date'
+    ));
+
+    if (empty($end_date_exists)) {
+        $result = $wpdb->query(
+            "ALTER TABLE {$table_name} 
+            ADD COLUMN end_date DATETIME NULL,
+            ADD INDEX end_date (end_date)"
+        );
+
+        if ($result === false) {
+            error_log('WCCG Critical: Failed to add end_date column - ' . $wpdb->last_error);
+            throw new Exception('Failed to add end_date column');
+        }
     }
 }
 
