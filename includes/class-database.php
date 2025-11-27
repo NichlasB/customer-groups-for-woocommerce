@@ -253,15 +253,32 @@ public function transaction($callback) {
      */
     private function get_product_specific_rule($product_id, $group_id) {
         global $wpdb;
+        
+        // Build list of product IDs to check (variation + parent if applicable)
+        $product_ids = array($product_id);
+        
+        // For variations, also check if there's a rule for the parent product
+        $product = wc_get_product($product_id);
+        if ($product && $product->is_type('variation')) {
+            $parent_id = $product->get_parent_id();
+            if ($parent_id) {
+                $product_ids[] = $parent_id;
+            }
+        }
+        
+        $placeholders = implode(',', array_fill(0, count($product_ids), '%d'));
+        $query_args = array_merge(array($group_id), $product_ids);
+        
         return $wpdb->get_row($wpdb->prepare(
             "SELECT pr.* 
             FROM {$this->tables['pricing_rules']} pr
             JOIN {$this->tables['rule_products']} rp ON pr.rule_id = rp.rule_id
-            WHERE pr.group_id = %d AND rp.product_id = %d AND pr.is_active = 1
+            WHERE pr.group_id = %d AND rp.product_id IN ($placeholders) AND pr.is_active = 1
             AND (pr.start_date IS NULL OR pr.start_date <= UTC_TIMESTAMP())
-            AND (pr.end_date IS NULL OR pr.end_date >= UTC_TIMESTAMP())",
-            $group_id,
-            $product_id
+            AND (pr.end_date IS NULL OR pr.end_date >= UTC_TIMESTAMP())
+            ORDER BY FIELD(rp.product_id, " . implode(',', $product_ids) . ") 
+            LIMIT 1",
+            $query_args
         ));
     }
 
@@ -297,6 +314,13 @@ public function transaction($callback) {
      */
     private function get_all_product_categories($product_id) {
         $category_ids = array();
+        
+        // For variations, get the parent product's categories
+        $product = wc_get_product($product_id);
+        if ($product && $product->is_type('variation')) {
+            $product_id = $product->get_parent_id();
+        }
+        
         $terms = wp_get_post_terms($product_id, 'product_cat', array('fields' => 'all'));
 
         if (!is_wp_error($terms) && !empty($terms)) {

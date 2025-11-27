@@ -72,6 +72,11 @@ class WCCG_Public {
         // Price adjustment hooks
         add_action('woocommerce_before_calculate_totals', array($this, 'adjust_cart_prices'), 10, 1);
         add_filter('woocommerce_get_price_html', array($this, 'adjust_price_display'), 10, 2);
+        
+        // Variable product price hooks
+        add_filter('woocommerce_variable_price_html', array($this, 'adjust_variable_price_html'), 10, 2);
+        add_filter('woocommerce_available_variation', array($this, 'adjust_variation_data'), 10, 3);
+        add_filter('woocommerce_variation_price_html', array($this, 'adjust_variation_price_html'), 10, 2);
 
         // Cart price display hooks
         add_filter('woocommerce_cart_item_price', array($this, 'display_cart_item_price'), 10, 3);
@@ -135,6 +140,11 @@ class WCCG_Public {
      * @return string
      */
     public function adjust_price_display($price_html, $product) {
+        // Handle variable products differently
+        if ($product->is_type('variable')) {
+            return $this->adjust_variable_price_display($price_html, $product);
+        }
+        
         $adjusted_price = $this->get_adjusted_price($product);
 
         if ($adjusted_price === false) {
@@ -172,6 +182,225 @@ class WCCG_Public {
         }
 
         return $price_html;
+    }
+
+    /**
+     * Adjust price display for variable products
+     *
+     * @param string $price_html
+     * @param WC_Product_Variable $product
+     * @return string
+     */
+    private function adjust_variable_price_display($price_html, $product) {
+        $user_id = get_current_user_id();
+        $effective_user_id = $user_id ? $user_id : 0;
+        
+        // Check if user qualifies for group pricing (either assigned group or default group)
+        $group_id = $user_id ? $this->db->get_user_group($user_id) : null;
+        if (!$group_id) {
+            $group_id = get_option('wccg_default_group_id', 0);
+        }
+        
+        if (!$group_id) {
+            return $price_html;
+        }
+        
+        // Get variation prices
+        $variation_prices = $product->get_variation_prices(true);
+        
+        if (empty($variation_prices['price'])) {
+            return $price_html;
+        }
+        
+        $min_price = min($variation_prices['price']);
+        $max_price = max($variation_prices['price']);
+        
+        // Get pricing rule using parent product ID (for category rules)
+        $pricing_rule = $this->db->get_pricing_rule_for_product($product->get_id(), $effective_user_id);
+        
+        if (!$pricing_rule) {
+            return $price_html;
+        }
+        
+        // Calculate discounted prices
+        $discounted_min = $this->calculate_discounted_price($min_price, $pricing_rule);
+        $discounted_max = $this->calculate_discounted_price($max_price, $pricing_rule);
+        
+        // Only show discount if there's an actual reduction
+        if ($discounted_min >= $min_price && $discounted_max >= $max_price) {
+            return $price_html;
+        }
+        
+        // Get group name for label
+        $group_name = $user_id ? $this->db->get_user_group_name($user_id) : null;
+        if (!$group_name && get_option('wccg_default_group_id', 0)) {
+            // Check for custom title first
+            $custom_title = get_option('wccg_default_group_custom_title', '');
+            if (!empty($custom_title)) {
+                $group_name = $custom_title;
+            } else {
+                global $wpdb;
+                $group_name = $wpdb->get_var($wpdb->prepare(
+                    "SELECT group_name FROM {$wpdb->prefix}customer_groups WHERE group_id = %d",
+                    get_option('wccg_default_group_id', 0)
+                ));
+            }
+        }
+        
+        $label_html = $group_name ? sprintf(
+            ' <span class="special-price-label">%s Pricing</span>',
+            $this->utils->escape_output($group_name)
+        ) : '';
+        
+        // Format the price display
+        if ($min_price === $max_price) {
+            // Single price (all variations same price)
+            $price_html = sprintf(
+                '<del>%s</del> <ins>%s</ins>%s',
+                wc_price($min_price),
+                wc_price($discounted_min),
+                $label_html
+            );
+        } else {
+            // Price range
+            $price_html = sprintf(
+                '<del>%s – %s</del> <ins>%s – %s</ins>%s',
+                wc_price($min_price),
+                wc_price($max_price),
+                wc_price($discounted_min),
+                wc_price($discounted_max),
+                $label_html
+            );
+        }
+        
+        return $price_html;
+    }
+
+    /**
+     * Adjust variable product price HTML (specific filter for variable products)
+     *
+     * @param string $price_html
+     * @param WC_Product_Variable $product
+     * @return string
+     */
+    public function adjust_variable_price_html($price_html, $product) {
+        return $this->adjust_variable_price_display($price_html, $product);
+    }
+
+    /**
+     * Adjust variation data for JavaScript (when variation is selected)
+     *
+     * @param array $variation_data
+     * @param WC_Product $product
+     * @param WC_Product_Variation $variation
+     * @return array
+     */
+    public function adjust_variation_data($variation_data, $product, $variation) {
+        $user_id = get_current_user_id();
+        $effective_user_id = $user_id ? $user_id : 0;
+        
+        // Get pricing rule for this variation (checks variation first, then parent)
+        $pricing_rule = $this->db->get_pricing_rule_for_product($variation->get_id(), $effective_user_id);
+        
+        if (!$pricing_rule) {
+            return $variation_data;
+        }
+        
+        // Get the original price
+        $original_price = $variation_data['display_price'];
+        
+        // Calculate discounted price
+        $discounted_price = $this->calculate_discounted_price($original_price, $pricing_rule);
+        
+        // Only modify if there's an actual discount
+        if ($discounted_price >= $original_price) {
+            return $variation_data;
+        }
+        
+        // Get group name for label
+        $group_name = $user_id ? $this->db->get_user_group_name($user_id) : null;
+        if (!$group_name && get_option('wccg_default_group_id', 0)) {
+            $custom_title = get_option('wccg_default_group_custom_title', '');
+            if (!empty($custom_title)) {
+                $group_name = $custom_title;
+            } else {
+                global $wpdb;
+                $group_name = $wpdb->get_var($wpdb->prepare(
+                    "SELECT group_name FROM {$wpdb->prefix}customer_groups WHERE group_id = %d",
+                    get_option('wccg_default_group_id', 0)
+                ));
+            }
+        }
+        
+        $label_html = $group_name ? sprintf(
+            ' <span class="special-price-label">%s Pricing</span>',
+            $this->utils->escape_output($group_name)
+        ) : '';
+        
+        // Update variation data with discounted prices
+        $variation_data['display_price'] = $discounted_price;
+        $variation_data['display_regular_price'] = $original_price;
+        
+        // Update the price HTML shown when variation is selected
+        $variation_data['price_html'] = sprintf(
+            '<del>%s</del> <ins>%s</ins>%s',
+            wc_price($original_price),
+            wc_price($discounted_price),
+            $label_html
+        );
+        
+        return $variation_data;
+    }
+
+    /**
+     * Adjust individual variation price HTML
+     *
+     * @param string $price_html
+     * @param WC_Product_Variation $variation
+     * @return string
+     */
+    public function adjust_variation_price_html($price_html, $variation) {
+        $adjusted_price = $this->get_adjusted_price($variation);
+        
+        if ($adjusted_price === false) {
+            return $price_html;
+        }
+        
+        // Get base price
+        $sale_price = $variation->get_sale_price();
+        $original_price = !empty($sale_price) && $sale_price > 0 ? $sale_price : $variation->get_regular_price();
+        
+        if (empty($original_price) || $adjusted_price >= $original_price) {
+            return $price_html;
+        }
+        
+        // Get group name for label
+        $user_id = get_current_user_id();
+        $group_name = $user_id ? $this->db->get_user_group_name($user_id) : null;
+        if (!$group_name && get_option('wccg_default_group_id', 0)) {
+            $custom_title = get_option('wccg_default_group_custom_title', '');
+            if (!empty($custom_title)) {
+                $group_name = $custom_title;
+            } else {
+                global $wpdb;
+                $group_name = $wpdb->get_var($wpdb->prepare(
+                    "SELECT group_name FROM {$wpdb->prefix}customer_groups WHERE group_id = %d",
+                    get_option('wccg_default_group_id', 0)
+                ));
+            }
+        }
+        
+        $label_html = $group_name ? sprintf(
+            ' <span class="special-price-label">%s Pricing</span>',
+            $this->utils->escape_output($group_name)
+        ) : '';
+        
+        return sprintf(
+            '<del>%s</del> <ins>%s</ins>%s',
+            wc_price($original_price),
+            wc_price($adjusted_price),
+            $label_html
+        );
     }
 
     /**
