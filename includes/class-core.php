@@ -58,8 +58,12 @@ class WCCG_Core {
         // Cleanup hooks
         add_action('wccg_cleanup_cron', array($this, 'run_cleanup_tasks'));
 
+        // Schedule expiration check hook (runs more frequently)
+        add_action('wccg_check_expired_rules', array($this, 'deactivate_expired_rules'));
+
         // Add clean up schedule verification
         add_action('admin_init', array($this, 'verify_cleanup_schedule'));
+        add_action('admin_init', array($this, 'verify_expiration_schedule'));
     }
 
     /**
@@ -73,6 +77,130 @@ class WCCG_Core {
                 'wccg_cleanup_cron'
             );
         }
+    }
+
+    /**
+     * Verify expiration check schedule
+     */
+    public function verify_expiration_schedule() {
+        if (!wp_next_scheduled('wccg_check_expired_rules')) {
+            // Run every 5 minutes to check for expired rules
+            wp_schedule_event(time(), 'wccg_five_minutes', 'wccg_check_expired_rules');
+        }
+    }
+
+    /**
+     * Deactivate expired pricing rules and clear caches
+     *
+     * @return array Results of the operation
+     */
+    public function deactivate_expired_rules() {
+        global $wpdb;
+        
+        $results = array(
+            'deactivated_count' => 0,
+            'activated_count' => 0,
+            'cache_cleared' => false
+        );
+        
+        $table = $wpdb->prefix . 'pricing_rules';
+        
+        // Find rules that have passed their end_date but are still marked as active
+        $expired_rules = $wpdb->get_col(
+            "SELECT rule_id FROM {$table} 
+            WHERE is_active = 1 
+            AND end_date IS NOT NULL 
+            AND end_date < UTC_TIMESTAMP()"
+        );
+        
+        if (!empty($expired_rules)) {
+            // Deactivate expired rules
+            $placeholders = implode(',', array_fill(0, count($expired_rules), '%d'));
+            $wpdb->query($wpdb->prepare(
+                "UPDATE {$table} SET is_active = 0 WHERE rule_id IN ($placeholders)",
+                $expired_rules
+            ));
+            
+            $results['deactivated_count'] = count($expired_rules);
+            
+            // Clear WooCommerce caches when rules are deactivated
+            $this->clear_woocommerce_price_caches();
+            $results['cache_cleared'] = true;
+            
+            // Log if in debug mode
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                $this->utils->log_error(
+                    'Auto-deactivated expired pricing rules',
+                    array('rule_ids' => $expired_rules),
+                    'debug'
+                );
+            }
+        }
+        
+        // Also check for rules that should now be active (start_date has arrived)
+        // These are rules that have is_active = 1 but were waiting for their start_date
+        // Note: We don't auto-activate rules that were manually deactivated
+        // This section handles cache clearing for rules that just became active
+        $newly_active_rules = $wpdb->get_col(
+            "SELECT rule_id FROM {$table} 
+            WHERE is_active = 1 
+            AND start_date IS NOT NULL 
+            AND start_date <= UTC_TIMESTAMP()
+            AND start_date > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 MINUTE)
+            AND (end_date IS NULL OR end_date >= UTC_TIMESTAMP())"
+        );
+        
+        if (!empty($newly_active_rules)) {
+            $results['activated_count'] = count($newly_active_rules);
+            
+            // Clear caches for newly active rules too
+            if (!$results['cache_cleared']) {
+                $this->clear_woocommerce_price_caches();
+                $results['cache_cleared'] = true;
+            }
+        }
+        
+        return $results;
+    }
+
+    /**
+     * Clear WooCommerce price-related caches
+     */
+    private function clear_woocommerce_price_caches() {
+        // Clear WooCommerce transients related to product prices
+        global $wpdb;
+        
+        // Delete product price transients
+        $wpdb->query(
+            "DELETE FROM {$wpdb->options} 
+            WHERE option_name LIKE '_transient_wc_var_prices_%'
+            OR option_name LIKE '_transient_timeout_wc_var_prices_%'
+            OR option_name LIKE '_transient_wc_product_children_%'
+            OR option_name LIKE '_transient_timeout_wc_product_children_%'"
+        );
+        
+        // Clear WooCommerce product cache
+        if (function_exists('wc_delete_product_transients')) {
+            // Get all products with pricing rules
+            $product_ids = $wpdb->get_col(
+                "SELECT DISTINCT product_id FROM {$wpdb->prefix}rule_products"
+            );
+            
+            foreach ($product_ids as $product_id) {
+                wc_delete_product_transients($product_id);
+            }
+        }
+        
+        // Clear object cache if available
+        if (function_exists('wp_cache_flush_group')) {
+            wp_cache_flush_group('woocommerce');
+        } elseif (function_exists('wp_cache_flush')) {
+            // Fallback: flush all cache (less efficient but ensures price updates)
+            wp_cache_flush();
+        }
+        
+        // Trigger WooCommerce action for any additional cache clearing hooks
+        do_action('woocommerce_delete_product_transients');
     }
 
     /**

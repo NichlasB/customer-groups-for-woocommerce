@@ -53,6 +53,8 @@ class WCCG_Admin_Pricing_Rules {
         add_action('wp_ajax_wccg_bulk_toggle_pricing_rules', array($this, 'ajax_bulk_toggle_pricing_rules'));
         add_action('wp_ajax_wccg_reorder_pricing_rules', array($this, 'ajax_reorder_pricing_rules'));
         add_action('wp_ajax_wccg_update_rule_schedule', array($this, 'ajax_update_rule_schedule'));
+        add_action('wp_ajax_wccg_update_pricing_rule', array($this, 'ajax_update_pricing_rule'));
+        add_action('wp_ajax_wccg_get_rule_data', array($this, 'ajax_get_rule_data'));
     }
 
     /**
@@ -609,6 +611,226 @@ class WCCG_Admin_Pricing_Rules {
     }
 
     /**
+     * AJAX handler for getting rule data for editing
+     */
+    public function ajax_get_rule_data() {
+        check_ajax_referer('wccg_pricing_rules_ajax', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(array('message' => 'Unauthorized'));
+        }
+
+        $rule_id = isset($_POST['rule_id']) ? intval($_POST['rule_id']) : 0;
+        if (!$rule_id) {
+            wp_send_json_error(array('message' => 'Invalid rule ID'));
+        }
+
+        global $wpdb;
+
+        // Get rule data
+        $rule = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}pricing_rules WHERE rule_id = %d",
+            $rule_id
+        ));
+
+        if (!$rule) {
+            wp_send_json_error(array('message' => 'Rule not found'));
+        }
+
+        // Get assigned product IDs
+        $product_ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT product_id FROM {$wpdb->prefix}rule_products WHERE rule_id = %d",
+            $rule_id
+        ));
+
+        // Get assigned category IDs
+        $category_ids = $wpdb->get_col($wpdb->prepare(
+            "SELECT category_id FROM {$wpdb->prefix}rule_categories WHERE rule_id = %d",
+            $rule_id
+        ));
+
+        wp_send_json_success(array(
+            'rule' => $rule,
+            'product_ids' => array_map('intval', $product_ids),
+            'category_ids' => array_map('intval', $category_ids)
+        ));
+    }
+
+    /**
+     * AJAX handler for updating a pricing rule
+     */
+    public function ajax_update_pricing_rule() {
+        check_ajax_referer('wccg_pricing_rules_ajax', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(array('message' => 'Unauthorized'));
+        }
+
+        $rule_id = isset($_POST['rule_id']) ? intval($_POST['rule_id']) : 0;
+        if (!$rule_id) {
+            wp_send_json_error(array('message' => 'Invalid rule ID'));
+        }
+
+        // Validate inputs
+        $group_id = $this->utils->sanitize_input($_POST['group_id'], 'group_id');
+        $discount_type = $this->utils->sanitize_input($_POST['discount_type'], 'discount_type');
+        $discount_value = $this->utils->sanitize_input($_POST['discount_value'], 'price');
+
+        if ($group_id === 0) {
+            wp_send_json_error(array('message' => 'Invalid customer group selected.'));
+        }
+
+        // Validate discount type and value
+        $validation_result = $this->utils->validate_pricing_input($discount_type, $discount_value);
+        if (!$validation_result['valid']) {
+            wp_send_json_error(array('message' => $validation_result['message']));
+        }
+
+        // Sanitize product and category IDs
+        $product_ids = isset($_POST['product_ids']) && is_array($_POST['product_ids'])
+            ? array_map('intval', $_POST['product_ids'])
+            : array();
+
+        $category_ids = isset($_POST['category_ids']) && is_array($_POST['category_ids'])
+            ? array_map('intval', $_POST['category_ids'])
+            : array();
+
+        // Filter out empty values
+        $product_ids = array_filter($product_ids);
+        $category_ids = array_filter($category_ids);
+
+        // Update the rule
+        $result = $this->update_pricing_rule($rule_id, $group_id, $discount_type, $discount_value, $product_ids, $category_ids);
+
+        if ($result) {
+            // Get updated data for response
+            global $wpdb;
+            
+            // Get group name
+            $group_name = $this->get_group_name($group_id);
+            
+            // Get product names
+            $product_names = array();
+            foreach ($product_ids as $product_id) {
+                $product = wc_get_product($product_id);
+                if ($product) {
+                    $product_names[] = $product->get_name();
+                }
+            }
+
+            // Get category names
+            $category_names = array();
+            foreach ($category_ids as $category_id) {
+                $category = get_term($category_id, 'product_cat');
+                if ($category && !is_wp_error($category)) {
+                    $category_names[] = $category->name;
+                }
+            }
+
+            // Format discount value for display
+            $discount_display = $discount_type === 'percentage' 
+                ? $discount_value . '%'
+                : get_woocommerce_currency_symbol() . $discount_value;
+
+            wp_send_json_success(array(
+                'message' => 'Pricing rule updated successfully.',
+                'group_name' => $group_name,
+                'discount_type' => ucfirst($discount_type),
+                'discount_type_raw' => $discount_type,
+                'discount_value' => $discount_display,
+                'product_names' => $product_names,
+                'category_names' => $category_names,
+                'product_ids' => $product_ids,
+                'category_ids' => $category_ids
+            ));
+        } else {
+            wp_send_json_error(array('message' => 'Error occurred while updating pricing rule.'));
+        }
+    }
+
+    /**
+     * Update an existing pricing rule
+     *
+     * @param int $rule_id
+     * @param int $group_id
+     * @param string $discount_type
+     * @param float $discount_value
+     * @param array $product_ids
+     * @param array $category_ids
+     * @return bool
+     */
+    private function update_pricing_rule($rule_id, $group_id, $discount_type, $discount_value, $product_ids, $category_ids) {
+        return $this->db->transaction(function() use ($rule_id, $group_id, $discount_type, $discount_value, $product_ids, $category_ids) {
+            global $wpdb;
+
+            // Update the rule itself
+            $result = $wpdb->update(
+                $wpdb->prefix . 'pricing_rules',
+                array(
+                    'group_id' => $group_id,
+                    'discount_type' => $discount_type,
+                    'discount_value' => $discount_value
+                ),
+                array('rule_id' => $rule_id),
+                array('%d', '%s', '%f'),
+                array('%d')
+            );
+
+            if ($result === false) {
+                throw new Exception('Failed to update pricing rule');
+            }
+
+            // Delete existing product associations
+            $wpdb->delete(
+                $wpdb->prefix . 'rule_products',
+                array('rule_id' => $rule_id),
+                array('%d')
+            );
+
+            // Delete existing category associations
+            $wpdb->delete(
+                $wpdb->prefix . 'rule_categories',
+                array('rule_id' => $rule_id),
+                array('%d')
+            );
+
+            // Insert new product associations
+            foreach ($product_ids as $product_id) {
+                $result = $wpdb->insert(
+                    $wpdb->prefix . 'rule_products',
+                    array(
+                        'rule_id' => $rule_id,
+                        'product_id' => $product_id,
+                    ),
+                    array('%d', '%d')
+                );
+
+                if ($result === false) {
+                    throw new Exception('Failed to insert product association');
+                }
+            }
+
+            // Insert new category associations
+            foreach ($category_ids as $category_id) {
+                $result = $wpdb->insert(
+                    $wpdb->prefix . 'rule_categories',
+                    array(
+                        'rule_id' => $rule_id,
+                        'category_id' => $category_id,
+                    ),
+                    array('%d', '%d')
+                );
+
+                if ($result === false) {
+                    throw new Exception('Failed to insert category association');
+                }
+            }
+
+            return true;
+        });
+    }
+
+    /**
      * Get current rule conflicts
      *
      * @return array
@@ -876,6 +1098,21 @@ private function get_pricing_rules() {
      */
     private function render_page($groups, $pricing_rules) {
         global $wpdb;
+        
+        // Get products for the edit form
+        $all_products = wc_get_products(array(
+            'limit' => -1,
+            'orderby' => 'title',
+            'order' => 'ASC'
+        ));
+        
+        // Get categories for the edit form
+        $all_categories = get_terms(array(
+            'taxonomy' => 'product_cat',
+            'hide_empty' => false,
+            'orderby' => 'name',
+            'order' => 'ASC'
+        ));
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Pricing Rules', 'wccg'); ?></h1>

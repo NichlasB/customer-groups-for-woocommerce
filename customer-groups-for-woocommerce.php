@@ -171,6 +171,7 @@ final class WCCG_Customer_Groups {
     public function deactivate() {
         // Clear scheduled hooks
         wp_clear_scheduled_hook('wccg_cleanup_cron');
+        wp_clear_scheduled_hook('wccg_check_expired_rules');
     }
 
     /**
@@ -254,8 +255,26 @@ final class WCCG_Customer_Groups {
         // Add cleanup task hook
         add_action('wccg_cleanup_cron', array($this, 'run_cleanup_tasks'));
 
+        // Register custom cron schedule for rule expiration checks
+        add_filter('cron_schedules', array($this, 'add_cron_schedules'));
+
         // Add init hook for potential future use
         add_action('init', array($this, 'init'));
+    }
+
+    /**
+     * Add custom cron schedules
+     *
+     * @param array $schedules Existing cron schedules
+     * @return array Modified schedules
+     */
+    public function add_cron_schedules($schedules) {
+        // Add 5-minute interval for rule expiration checks
+        $schedules['wccg_five_minutes'] = array(
+            'interval' => 5 * MINUTE_IN_SECONDS,
+            'display'  => esc_html__('Every 5 Minutes', 'wccg')
+        );
+        return $schedules;
     }
 
     /**

@@ -4,6 +4,92 @@ if (!defined('ABSPATH')) {
 }
 ?>
 
+<!-- Edit Rule Modal -->
+<div id="wccg-edit-rule-modal" class="wccg-modal" style="display: none;">
+    <div class="wccg-modal-overlay"></div>
+    <div class="wccg-modal-container">
+        <div class="wccg-modal-header">
+            <h2><?php esc_html_e('Edit Pricing Rule', 'wccg'); ?></h2>
+            <button type="button" class="wccg-modal-close" aria-label="<?php esc_attr_e('Close', 'wccg'); ?>">
+                <span class="dashicons dashicons-no-alt"></span>
+            </button>
+        </div>
+        <div class="wccg-modal-body">
+            <input type="hidden" id="wccg-edit-rule-id" value="">
+            
+            <div class="wccg-modal-grid">
+                <!-- Group Selection -->
+                <div class="wccg-modal-field">
+                    <label for="wccg-edit-group"><?php esc_html_e('Customer Group', 'wccg'); ?></label>
+                    <select id="wccg-edit-group">
+                        <?php foreach ($groups as $group) : ?>
+                            <?php if ($group->group_name !== 'Regular Customers') : ?>
+                                <option value="<?php echo esc_attr($group->group_id); ?>">
+                                    <?php echo esc_html($group->group_name); ?>
+                                </option>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <!-- Discount Type -->
+                <div class="wccg-modal-field">
+                    <label for="wccg-edit-discount-type"><?php esc_html_e('Discount Type', 'wccg'); ?></label>
+                    <select id="wccg-edit-discount-type">
+                        <option value="fixed"><?php esc_html_e('Fixed Amount Discount', 'wccg'); ?></option>
+                        <option value="percentage"><?php esc_html_e('Percentage Discount', 'wccg'); ?></option>
+                    </select>
+                    <p class="description"><?php esc_html_e('Fixed amount discounts take precedence over percentage discounts.', 'wccg'); ?></p>
+                </div>
+
+                <!-- Discount Value -->
+                <div class="wccg-modal-field">
+                    <label for="wccg-edit-discount-value"><?php esc_html_e('Discount Value', 'wccg'); ?></label>
+                    <input type="number" id="wccg-edit-discount-value" step="0.01" min="0">
+                    <p class="description wccg-edit-discount-hint"><?php esc_html_e('Enter the fixed discount amount.', 'wccg'); ?></p>
+                </div>
+            </div>
+
+            <div class="wccg-modal-selects">
+                <!-- Products Selection -->
+                <div class="wccg-modal-field">
+                    <label for="wccg-edit-products"><?php esc_html_e('Assigned Products', 'wccg'); ?></label>
+                    <p class="description"><?php esc_html_e('Hold Ctrl (Windows) or Cmd (Mac) to select multiple. Product rules override category rules.', 'wccg'); ?></p>
+                    <select id="wccg-edit-products" multiple size="8">
+                        <?php foreach ($all_products as $product) : ?>
+                            <option value="<?php echo esc_attr($product->get_id()); ?>">
+                                <?php echo esc_html($product->get_name()); ?>
+                                (<?php echo esc_html(get_woocommerce_currency_symbol() . $product->get_regular_price()); ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <!-- Categories Selection -->
+                <div class="wccg-modal-field">
+                    <label for="wccg-edit-categories"><?php esc_html_e('Assigned Categories', 'wccg'); ?></label>
+                    <p class="description"><?php esc_html_e('Hold Ctrl (Windows) or Cmd (Mac) to select multiple. Applies to all products in selected categories.', 'wccg'); ?></p>
+                    <select id="wccg-edit-categories" multiple size="8">
+                        <?php foreach ($all_categories as $category) : 
+                            $depth = count(get_ancestors($category->term_id, 'product_cat', 'taxonomy'));
+                            $padding = str_repeat('— ', $depth);
+                        ?>
+                            <option value="<?php echo esc_attr($category->term_id); ?>">
+                                <?php echo esc_html($padding . $category->name); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="wccg-modal-footer">
+            <span class="wccg-modal-message"></span>
+            <button type="button" class="button wccg-modal-cancel"><?php esc_html_e('Cancel', 'wccg'); ?></button>
+            <button type="button" class="button button-primary wccg-modal-save"><?php esc_html_e('Save Changes', 'wccg'); ?></button>
+        </div>
+    </div>
+</div>
+
 <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
     <?php if (!empty($pricing_rules)) : ?>
         <button type="button" id="wccg-enable-all-rules" class="button button-secondary">
@@ -198,6 +284,13 @@ if (!defined('ABSPATH')) {
                 <td>
                     <div class="wccg-actions-wrapper">
                         <button type="button" 
+                            class="wccg-edit-rule-btn" 
+                            data-rule-id="<?php echo esc_attr($rule->rule_id); ?>"
+                            title="<?php esc_attr_e('Edit Rule', 'wccg'); ?>">
+                            <span class="dashicons dashicons-edit"></span>
+                            <span class="button-text"><?php esc_html_e('Edit', 'wccg'); ?></span>
+                        </button>
+                        <button type="button" 
                             class="wccg-edit-schedule-btn" 
                             data-rule-id="<?php echo esc_attr($rule->rule_id); ?>"
                             data-is-active="<?php echo esc_attr($is_active); ?>"
@@ -211,7 +304,7 @@ if (!defined('ABSPATH')) {
                                 }
                             ?>">
                             <span class="dashicons dashicons-calendar-alt"></span>
-                            <span class="button-text"><?php esc_html_e('Edit Schedule', 'wccg'); ?></span>
+                            <span class="button-text"><?php esc_html_e('Schedule', 'wccg'); ?></span>
                         </button>
                         <form method="post" class="wccg-delete-rule-form">
                             <?php wp_nonce_field('wccg_pricing_rules_action', 'wccg_pricing_rules_nonce'); ?>

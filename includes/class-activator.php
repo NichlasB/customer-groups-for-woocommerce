@@ -333,8 +333,14 @@ private static function migrate_existing_rules() {
      * Schedule cron tasks
      */
     private static function schedule_tasks() {
+        // Schedule daily cleanup task
         if (!wp_next_scheduled('wccg_cleanup_cron')) {
             wp_schedule_event(time(), 'daily', 'wccg_cleanup_cron');
+        }
+        
+        // Schedule rule expiration check (every 5 minutes)
+        if (!wp_next_scheduled('wccg_check_expired_rules')) {
+            wp_schedule_event(time(), 'wccg_five_minutes', 'wccg_check_expired_rules');
         }
     }
 

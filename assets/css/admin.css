@@ -818,3 +818,297 @@ select[name="group_id"] {
         font-size: 15px;
     }
 }
+
+/* ==========================================================================
+   14. Edit Rule Button Styles
+   ========================================================================== */
+.wccg-edit-rule-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 3px 8px !important;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 3px;
+    border: 1px solid #2271b1;
+    background: #2271b1;
+    color: #fff;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    min-height: 24px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.wccg-edit-rule-btn:hover {
+    background: #135e96;
+    border-color: #135e96;
+    color: #fff;
+}
+
+.wccg-edit-rule-btn:focus {
+    box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1;
+    outline: 2px solid transparent;
+}
+
+.wccg-edit-rule-btn .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+}
+
+/* Compact icon-only variant for smaller screens */
+@media screen and (max-width: 1400px) {
+    .wccg-edit-rule-btn .button-text {
+        display: none;
+    }
+    
+    .wccg-edit-rule-btn {
+        padding: 5px !important;
+        min-width: 28px;
+        justify-content: center;
+        min-height: 28px;
+    }
+    
+    .wccg-edit-rule-btn .dashicons {
+        margin: 0;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+    }
+}
+
+/* ==========================================================================
+   15. Edit Rule Modal
+   ========================================================================== */
+
+/* Prevent body scroll when modal is open */
+body.wccg-modal-open {
+    overflow: hidden;
+}
+
+.wccg-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wccg-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.wccg-modal-container {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    max-width: 800px;
+    width: 90%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: wccg-modal-appear 0.2s ease-out;
+}
+
+@keyframes wccg-modal-appear {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.wccg-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #dcdcde;
+    background: #f6f7f7;
+    border-radius: 8px 8px 0 0;
+}
+
+.wccg-modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.wccg-modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #50575e;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wccg-modal-close:hover {
+    background: #dcdcde;
+    color: #1d2327;
+}
+
+.wccg-modal-close .dashicons {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+}
+
+.wccg-modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.wccg-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.wccg-modal-selects {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.wccg-modal-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.wccg-modal-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #1d2327;
+    font-size: 13px;
+}
+
+.wccg-modal-field select,
+.wccg-modal-field input[type="number"] {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    background-color: #fff;
+    box-sizing: border-box;
+}
+
+.wccg-modal-field select:focus,
+.wccg-modal-field input[type="number"]:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: none;
+}
+
+.wccg-modal-field select[multiple] {
+    min-height: 180px;
+}
+
+.wccg-modal-field select[multiple] option {
+    padding: 6px 8px;
+}
+
+.wccg-modal-field .description {
+    margin: 4px 0 8px;
+    color: #646970;
+    font-size: 12px;
+    font-style: normal;
+    line-height: 1.4;
+}
+
+.wccg-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid #dcdcde;
+    background: #f6f7f7;
+    border-radius: 0 0 8px 8px;
+}
+
+.wccg-modal-message {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.wccg-modal-footer .button {
+    min-width: 100px;
+}
+
+/* Modal responsive styles */
+@media screen and (max-width: 782px) {
+    .wccg-modal-container {
+        width: 95%;
+        max-height: 95vh;
+        margin: 10px;
+    }
+    
+    .wccg-modal-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .wccg-modal-selects {
+        grid-template-columns: 1fr;
+    }
+    
+    .wccg-modal-header {
+        padding: 12px 16px;
+    }
+    
+    .wccg-modal-body {
+        padding: 16px;
+    }
+    
+    .wccg-modal-footer {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+    }
+    
+    .wccg-modal-message {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    .wccg-modal-field select[multiple] {
+        min-height: 150px;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .wccg-modal-header h2 {
+        font-size: 16px;
+    }
+    
+    .wccg-modal-footer .button {
+        flex: 1;
+        min-width: auto;
+    }
+}
