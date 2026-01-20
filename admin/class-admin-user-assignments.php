@@ -661,7 +661,7 @@ private function handle_user_unassignments() {
                                     ? esc_html($user->user_login)
                                     : esc_html(trim($user->first_name . ' ' . $user->last_name));
 
-                                    $edit_link = admin_url('admin.php?page=customer-manager-edit&id=' . $user->ID);
+                                    $edit_link = admin_url('admin.php?page=alynt-wc-customer-order-manager-edit&id=' . $user->ID);
                                     echo '<a href="' . esc_url($edit_link) . '">' . $display_name . '</a>';
                                     ?>
                                 </td>
