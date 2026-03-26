@@ -2,6 +2,37 @@
 
 All notable changes to Alynt Customer Groups will be documented in this file.
 
+## [2.0.0] - 2026-03-26
+
+### Added
+- Complete plugin rename from customer-groups-for-woocommerce to alynt-customer-groups
+- New WCCG_ class prefix for all plugin classes
+- New pricing rule architecture with enhanced AJAX handling
+- Refactored admin UI with modal editing for pricing rules
+- New admin pricing rules view helper class
+- New public pricing component for frontend price display
+- New public banner component for customer notifications
+- New maintenance repository for cleanup operations
+- New rate limiter class for API protection
+- Composer.json for dependency management
+- GitHub Actions workflows for build and release
+- Comprehensive HOOKS.md documentation
+
+### Changed
+- Complete architecture refactoring
+- Improved database queries for pricing rule repository
+- Enhanced security with improved input sanitization
+- Updated admin UI with new modal-based editing
+
+### Removed
+- Legacy CCG_ class prefix (replaced by WCCG_)
+- Old single-file plugin structure
+
+### Security
+- Enhanced input sanitization across all user inputs
+- Improved error handling and logging
+- Rate limiting for pricing calculations and group changes
+
 ## [1.1.0] - 2026-01-20
 
 ### Added
