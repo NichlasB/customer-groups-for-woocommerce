@@ -3,7 +3,7 @@
  * Plugin Name: Alynt Customer Groups
  * Plugin URI:  https://github.com/NichlasB/alynt-customer-groups
  * Description: Implements custom customer groups and pricing tiers for WooCommerce.
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: Alynt
  * Author URI: https://alynt.com
  * GitHub Plugin URI: NichlasB/alynt-customer-groups
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WCCG_VERSION', '2.0.0' );
+define( 'WCCG_VERSION', '2.1.0' );
 define( 'WCCG_FILE', __FILE__ );
 define( 'WCCG_PATH', plugin_dir_path( WCCG_FILE ) );
 define( 'WCCG_URL', plugin_dir_url( WCCG_FILE ) );

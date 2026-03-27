@@ -2,6 +2,19 @@
 
 All notable changes to Alynt Customer Groups will be documented in this file.
 
+## [2.1.0] - 2026-03-27
+
+### Added
+- Modal dialog for pricing rule editing
+- Drag-and-drop reordering for pricing rules
+- Inline schedule editing in the rules list view
+- New schedule modal with date/time field support
+- Enhanced admin CSS for modal, toggle switches, and status badges
+
+### Changed
+- Improved pricing rules list view with horizontal scroll support
+- Enhanced JavaScript for admin pricing rules page
+
 ## [2.0.0] - 2026-03-26
 
 ### Added
