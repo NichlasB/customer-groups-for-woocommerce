@@ -20,6 +20,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WCCG_Admin_Pricing_Rules_View_Helper {
 
 	/**
+	 * Format a discount value for display in the Pricing Rules table.
+	 *
+	 * @since  2.0.1
+	 * @param  string $discount_type  Either 'fixed' or 'percentage'.
+	 * @param  mixed  $discount_value Raw discount value.
+	 * @return string
+	 */
+	public static function format_discount_value( $discount_type, $discount_value ) {
+		if ( 'percentage' === $discount_type ) {
+			return $discount_value . '%';
+		}
+
+		return get_woocommerce_currency_symbol() . number_format_i18n( (float) $discount_value, wc_get_price_decimals() );
+	}
+
+	/**
 	 * Fetch the name of a customer group by its ID.
 	 *
 	 * @since  1.0.0
@@ -90,6 +106,24 @@ class WCCG_Admin_Pricing_Rules_View_Helper {
 	}
 
 	/**
+	 * Build the complete schedule cell HTML for one pricing rule row.
+	 *
+	 * @since  2.0.1
+	 * @param  object $rule stdClass with start_date, end_date, and is_active properties.
+	 * @return string
+	 */
+	public static function build_schedule_cell_html( $rule ) {
+		$schedule_data = self::build_schedule_data( $rule );
+		$html          = $schedule_data['badge_html'] . $schedule_data['display_html'];
+
+		if ( empty( $rule->is_active ) && $schedule_data['has_schedule'] ) {
+			$html .= '<div class="wccg-schedule-warning"><span class="dashicons dashicons-warning" aria-hidden="true"></span>' . esc_html__( 'Rule is inactive', 'alynt-customer-groups' ) . '</div>';
+		}
+
+		return $html;
+	}
+
+	/**
 	 * Transform raw pricing rule database rows into a structured view array for the list template.
 	 *
 	 * @since  1.0.0
@@ -135,14 +169,19 @@ class WCCG_Admin_Pricing_Rules_View_Helper {
 				}
 			}
 
-			$schedule_data = self::build_schedule_data( $rule );
 			$is_active     = isset( $rule->is_active ) ? (int) $rule->is_active : 1;
+			$schedule_rule = (object) array(
+				'start_date' => $rule->start_date,
+				'end_date'   => $rule->end_date,
+				'is_active'  => $is_active,
+			);
+			$schedule_data = self::build_schedule_data( $schedule_rule );
 
 			$rules_view[] = array(
 				'rule_id'                => (int) $rule->rule_id,
 				'group_name'             => isset( $group_names[ $rule->group_id ] ) ? $group_names[ $rule->group_id ] : __( 'Unknown Group', 'alynt-customer-groups' ),
 				'discount_type'          => $rule->discount_type,
-				'discount_value_display' => $rule->discount_type === 'percentage' ? $rule->discount_value . '%' : get_woocommerce_currency_symbol() . $rule->discount_value,
+				'discount_value_display' => self::format_discount_value( $rule->discount_type, $rule->discount_value ),
 				'product_names'          => $rule_products,
 				'category_names'         => $rule_categories,
 				'is_active'              => $is_active,
@@ -150,6 +189,7 @@ class WCCG_Admin_Pricing_Rules_View_Helper {
 				'start_date'             => $rule->start_date,
 				'end_date'               => $rule->end_date,
 				'schedule'               => $schedule_data,
+				'schedule_html'          => self::build_schedule_cell_html( $schedule_rule ),
 				'start_local'            => ! empty( $rule->start_date ) ? get_date_from_gmt( $rule->start_date, 'Y-m-d\TH:i' ) : '',
 				'end_local'              => ! empty( $rule->end_date ) ? get_date_from_gmt( $rule->end_date, 'Y-m-d\TH:i' ) : '',
 			);
@@ -210,13 +250,14 @@ class WCCG_Admin_Pricing_Rules_View_Helper {
 		);
 
 		$options = array();
+		$currency_symbol = html_entity_decode( get_woocommerce_currency_symbol(), ENT_QUOTES, get_bloginfo( 'charset' ) );
 		foreach ( $products as $product ) {
 			$options[] = array(
 				'id'   => (int) $product->get_id(),
 				'text' => sprintf(
 					'%1$s (%2$s)',
 					$product->get_name(),
-					get_woocommerce_currency_symbol() . $product->get_regular_price()
+					$currency_symbol . $product->get_regular_price()
 				),
 			);
 		}

@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 <?php require WCCG_PATH . 'admin/views/html-pricing-rules-modal.php'; ?>
+<?php require WCCG_PATH . 'admin/views/html-pricing-rules-schedule-modal.php'; ?>
 <?php require WCCG_PATH . 'admin/views/html-pricing-rules-toolbar.php'; ?>
 <div class="wccg-pricing-rules-top-scroll" aria-hidden="true">
 	<div class="wccg-pricing-rules-top-scroll-inner"></div>
@@ -91,16 +92,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 							<?php echo esc_html( implode( ', ', $rule['category_names'] ) ); ?>
 						<?php endif; ?>
 					</td>
-					<td class="wccg-schedule-cell <?php echo ! $rule['is_active'] ? 'wccg-schedule-inactive' : ''; ?>">
-						<?php echo wp_kses_post( $rule['schedule']['badge_html'] ); ?>
-						<?php echo wp_kses_post( $rule['schedule']['display_html'] ); ?>
-						<?php if ( ! $rule['is_active'] && $rule['schedule']['has_schedule'] ) : ?>
-							<div class="wccg-schedule-warning">
-								<span class="dashicons dashicons-warning" aria-hidden="true"></span>
-								<?php esc_html_e( 'Rule is inactive', 'alynt-customer-groups' ); ?>
-							</div>
-						<?php endif; ?>
-					</td>
+					<td class="wccg-schedule-cell <?php echo ! $rule['is_active'] ? 'wccg-schedule-inactive' : ''; ?>"><?php echo wp_kses_post( $rule['schedule_html'] ); ?></td>
 					<td><?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $rule['created_at'] ) ) ); ?></td>
 					<td>
 						<div class="wccg-actions-wrapper">
@@ -136,41 +128,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 									<span class="button-text"><?php esc_html_e( 'Delete', 'alynt-customer-groups' ); ?></span>
 								</button>
 							</form>
-						</div>
-					</td>
-				</tr>
-				<tr class="wccg-schedule-edit-row" id="edit-schedule-<?php echo esc_attr( $rule['rule_id'] ); ?>" style="display: none;">
-					<td colspan="10">
-						<div class="wccg-schedule-edit-form">
-							<h4><?php esc_html_e( 'Edit Schedule', 'alynt-customer-groups' ); ?></h4>
-							<?php if ( ! $rule['is_active'] ) : ?>
-								<div class="wccg-inactive-rule-warning">
-									<span class="dashicons dashicons-warning" aria-hidden="true"></span>
-									<strong><?php esc_html_e( 'Warning:', 'alynt-customer-groups' ); ?></strong>
-									<?php esc_html_e( 'This rule is currently inactive. The schedule will not take effect until you enable the rule using the toggle switch.', 'alynt-customer-groups' ); ?>
-								</div>
-							<?php endif; ?>
-							<div class="wccg-edit-schedule-fields">
-								<div class="wccg-edit-field">
-									<label for="edit-start-date-<?php echo esc_attr( $rule['rule_id'] ); ?>"><?php esc_html_e( 'Start Date & Time:', 'alynt-customer-groups' ); ?></label>
-									<input type="datetime-local" id="edit-start-date-<?php echo esc_attr( $rule['rule_id'] ); ?>" class="wccg-edit-start-date" value="<?php echo esc_attr( $rule['start_local'] ); ?>">
-								</div>
-								<div class="wccg-edit-field">
-									<label for="edit-end-date-<?php echo esc_attr( $rule['rule_id'] ); ?>"><?php esc_html_e( 'End Date & Time:', 'alynt-customer-groups' ); ?></label>
-									<input type="datetime-local" id="edit-end-date-<?php echo esc_attr( $rule['rule_id'] ); ?>" class="wccg-edit-end-date" value="<?php echo esc_attr( $rule['end_local'] ); ?>">
-								</div>
-							</div>
-							<div class="wccg-edit-schedule-actions">
-								<button type="button" class="button button-primary wccg-save-schedule-btn" data-rule-id="<?php echo esc_attr( $rule['rule_id'] ); ?>"><?php esc_html_e( 'Save Schedule', 'alynt-customer-groups' ); ?></button>
-								<button type="button" class="button wccg-cancel-schedule-btn" data-rule-id="<?php echo esc_attr( $rule['rule_id'] ); ?>"><?php esc_html_e( 'Cancel', 'alynt-customer-groups' ); ?></button>
-								<span class="wccg-save-status wccg-schedule-edit-message" role="status" aria-live="polite" aria-atomic="true"></span>
-							</div>
-							<p class="description">
-							<?php
-							/* translators: %s: WordPress timezone string wrapped in code tags. */
-							printf( esc_html__( 'Leave fields blank to remove schedule restrictions. Times are in %s timezone.', 'alynt-customer-groups' ), '<code>' . esc_html( wp_timezone_string() ) . '</code>' );
-							?>
-							</p>
 						</div>
 					</td>
 				</tr>

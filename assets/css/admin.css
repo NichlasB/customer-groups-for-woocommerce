@@ -651,7 +651,7 @@ select[name="group_id"] {
 }
 
 /* ==========================================================================
-   12. Inline Edit Schedule Form
+   12. Schedule Editor
    ========================================================================== */
 .wccg-schedule-edit-row {
     background-color: #f9f9f9;
@@ -746,6 +746,15 @@ select[name="group_id"] {
 
 .wccg-edit-schedule-btn {
     margin-right: 5px;
+}
+
+.wccg-modal-container--schedule {
+    max-width: 640px;
+}
+
+.wccg-modal-grid--schedule {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 16px;
 }
 
 /* ==========================================================================

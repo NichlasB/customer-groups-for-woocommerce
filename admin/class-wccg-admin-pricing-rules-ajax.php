@@ -298,6 +298,13 @@ class WCCG_Admin_Pricing_Rules_Ajax {
 				'schedule_status'       => $schedule_data['status'],
 				'schedule_badge_html'   => $schedule_data['badge_html'],
 				'schedule_display_html' => $schedule_data['display_html'],
+				'schedule_html'         => WCCG_Admin_Pricing_Rules_View_Helper::build_schedule_cell_html(
+					(object) array(
+						'start_date' => $start_date,
+						'end_date'   => $end_date,
+						'is_active'  => (int) $this->db->get_pricing_rule_status( $rule_id ),
+					)
+				),
 			)
 		);
 	}
@@ -492,7 +499,7 @@ class WCCG_Admin_Pricing_Rules_Ajax {
 				'group_name'        => $group_name,
 				'discount_type'     => ucfirst( $discount_type ),
 				'discount_type_raw' => $discount_type,
-				'discount_value'    => $discount_type === 'percentage' ? $discount_value . '%' : get_woocommerce_currency_symbol() . $discount_value,
+				'discount_value'    => WCCG_Admin_Pricing_Rules_View_Helper::format_discount_value( $discount_type, $discount_value ),
 				'product_names'     => $product_names,
 				'category_names'    => $category_names,
 				'product_ids'       => $product_ids,
